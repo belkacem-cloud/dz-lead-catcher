@@ -23,7 +23,9 @@ app.post('/run', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'keywords[] required' });
     }
 
-   fs.writeFileSync(process.env.KEYWORDS_FILE || '/tmp/keywords.txt', keywords.filter(Boolean).join('\n'));
+    // اكتب الكلمات في /tmp (دائمًا قابل للكتابة داخل الحاوية)
+    const KEYWORDS_FILE = process.env.KEYWORDS_FILE || '/tmp/keywords.txt';
+    fs.writeFileSync(KEYWORDS_FILE, keywords.filter(Boolean).join('\n'));
 
     const env = {};
     if (scrollPages) env.SCROLL_PAGES = String(scrollPages);
