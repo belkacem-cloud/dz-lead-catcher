@@ -23,7 +23,7 @@ app.post('/run', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'keywords[] required' });
     }
 
-    fs.writeFileSync('keywords.txt', keywords.filter(Boolean).join('\n'));
+   fs.writeFileSync(process.env.KEYWORDS_FILE || '/tmp/keywords.txt', keywords.filter(Boolean).join('\n'));
 
     const env = {};
     if (scrollPages) env.SCROLL_PAGES = String(scrollPages);
