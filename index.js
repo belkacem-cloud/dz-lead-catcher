@@ -12,7 +12,11 @@ const SLEEP_MIN_MS = parseInt(process.env.SLEEP_MIN_MS || '1200', 10);
 const SLEEP_MAX_MS = parseInt(process.env.SLEEP_MAX_MS || '2600', 10);
 const USER_DATA_DIR = process.env.USER_DATA_DIR || '.puppeteer';
 
-// مهم للحاويات: بدون-ساندبوكس وتقليل مشاكل /dev/shm
+// ملفات العمل (إلى /tmp لتفادي مشاكل الصلاحيات بالحاويات)
+const KEYWORDS_FILE = process.env.KEYWORDS_FILE || '/tmp/keywords.txt';
+const PAGES_FILE = process.env.PAGES_FILE || '/tmp/pages.json';
+
+// مهم للحاويات
 const LAUNCH_ARGS = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
@@ -109,18 +113,26 @@ async function scrapeKeyword(browser, keyword) {
   return [...pageLinks];
 }
 
+function readKeywords() {
+  // نقرأ من /tmp أولًا (الخادم يكتبها هناك)، ولو غير موجودة نجرّب ملف المستودع كخطة بديلة
+  if (fs.existsSync(KEYWORDS_FILE)) {
+    return fs.readFileSync(KEYWORDS_FILE, 'utf8').split('\n').map(s=>s.trim()).filter(Boolean);
+  }
+  const fallback = path.join(process.cwd(), 'keywords.txt');
+  if (fs.existsSync(fallback)) {
+    return fs.readFileSync(fallback, 'utf8').split('\n').map(s=>s.trim()).filter(Boolean);
+  }
+  throw new Error(`No keywords file found at ${KEYWORDS_FILE} or ${fallback}`);
+}
+
 async function main() {
-  const keywords = fs
-    .readFileSync(path.join(process.cwd(), 'keywords.txt'), 'utf8')
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const keywords = readKeywords();
 
   const browser = await puppeteer.launch({
     headless: HEADLESS,
     userDataDir: USER_DATA_DIR,
     args: LAUNCH_ARGS,
-    executablePath: EXECUTABLE_PATH, // يعمل تلقائيًا في صورة puppeteer الرسمية
+    executablePath: EXECUTABLE_PATH,
   });
 
   const all = new Set();
@@ -133,10 +145,10 @@ async function main() {
   await browser.close();
 
   fs.writeFileSync(
-    'pages.json',
+    PAGES_FILE,
     JSON.stringify({ ts: Date.now(), pages: [...all] }, null, 2)
   );
-  console.log('Collected pages:', all.size);
+  console.log('Collected pages:', all.size, '→', PAGES_FILE);
 }
 
 main().catch((e) => {
